@@ -1,0 +1,470 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart Emergency Resource Coordination System</title>
+<style>
+:root{--bg:#f3f6fb;--card:#fff;--ink:#172238;--muted:#718096;--blue:#2457d6;--red:#d93646;--green:#16845b;--border:#e5eaf2}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Arial,Helvetica,sans-serif}
+header{background:#101b35;color:white;padding:24px 5%;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+header h1{font-size:22px;margin:0 0 7px}
+header p{margin:0;color:#c5d0e6;font-size:13px}
+.status{font-size:12px;border:1px solid #53617b;padding:8px 12px;border-radius:20px}
+main{max-width:1200px;margin:28px auto;padding:0 20px}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-bottom:22px}
+.stat,.panel{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px}
+.stat span{color:var(--muted);font-size:13px}
+.stat strong{display:block;font-size:28px;margin-top:12px}
+.layout{display:grid;grid-template-columns:minmax(280px,.85fr) minmax(0,1.5fr);gap:20px}
+h2{font-size:17px;margin:0 0 18px}
+label{display:block;font-size:13px;font-weight:600;margin:13px 0 6px}
+input,select,textarea{width:100%;padding:11px;border:1px solid #d5ddea;border-radius:8px;background:white;font:inherit;font-size:14px}
+textarea{resize:vertical;min-height:72px}
+button{border:0;border-radius:8px;padding:11px 14px;font-weight:600;cursor:pointer}
+button:disabled{opacity:.6;cursor:not-allowed}
+.primary{background:var(--blue);color:white;width:100%;margin-top:17px}
+.secondary{background:#eaf0ff;color:#244db5}
+.small{font-size:12px;padding:8px 10px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.section{margin-bottom:20px}
+.muted{color:var(--muted);font-size:13px}
+.item{border:1px solid var(--border);border-radius:10px;padding:13px;margin-top:10px}
+.item h3{font-size:14px;margin:0 0 7px}
+.item p{font-size:12px;color:var(--muted);margin:5px 0;overflow-wrap:anywhere}
+.tag{display:inline-block;font-size:11px;padding:5px 8px;border-radius:20px;background:#e5f7ee;color:#14754e}
+.tag.warn{background:#fff1d7;color:#8c5b00}
+#notice{display:none;padding:12px;border-radius:9px;margin-bottom:18px;font-size:13px}
+.error{background:#fff0f0;color:#a51f2c}
+.success{background:#e7f8ee;color:#146d43}
+.empty{padding:20px;text-align:center;color:var(--muted);font-size:13px}
+.auth-wrap{max-width:460px;margin:35px auto}
+.auth-wrap .panel{padding:26px}
+.auth-subtitle{font-size:13px;color:var(--muted);line-height:1.5}
+.auth-switch{text-align:center;font-size:13px;margin:18px 0 0}
+.link-button{background:none;color:var(--blue);padding:4px;text-decoration:underline}
+#dashboard{display:none}
+#userInfo{font-size:12px;color:#c5d0e6}
+@media(max-width:760px){.layout{grid-template-columns:1fr}.stats{gap:8px}.stat{padding:13px}.stat strong{font-size:22px}header h1{font-size:18px}.auth-wrap{margin:20px auto}}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>🚨 Smart Emergency Coordination</h1>
+    <p>Emergency management · Resource availability · Smart matching</p>
+    <p id="userInfo" style="margin-top:8px"></p>
+  </div>
+  <div class="row">
+    <div class="status" id="apiStatus">Checking backend...</div>
+    <button id="logoutBtn" class="secondary small" style="display:none" onclick="logout()">Logout</button>
+  </div>
+</header>
+
+<main>
+  <div id="notice"></div>
+
+  <section id="authSection" class="auth-wrap">
+    <div class="panel">
+      <h2 id="authTitle">🔐 Operator Login</h2>
+      <p class="auth-subtitle" id="authSubtitle">Login to access the emergency coordination dashboard.</p>
+
+      <form id="loginForm">
+        <label for="loginEmail">Email address</label>
+        <input id="loginEmail" type="email" autocomplete="username" required placeholder="you@example.com">
+
+        <label for="loginPassword">Password</label>
+        <input id="loginPassword" type="password" autocomplete="current-password" required placeholder="Enter password">
+
+        <button class="primary" type="submit" id="loginButton">Login</button>
+      </form>
+
+      <form id="registerForm" style="display:none">
+        <label for="registerName">Full name</label>
+        <input id="registerName" maxlength="100" required autocomplete="name" placeholder="Your full name">
+
+        <label for="registerEmail">Email address</label>
+        <input id="registerEmail" type="email" maxlength="150" required autocomplete="email" placeholder="you@example.com">
+
+        <label for="registerPhone">Phone number (optional)</label>
+        <input id="registerPhone" type="tel" maxlength="20" autocomplete="tel" placeholder="Phone number">
+
+        <label for="registerPassword">Password (minimum 8 characters)</label>
+        <input id="registerPassword" type="password" minlength="8" required autocomplete="new-password" placeholder="Create password">
+
+        <button class="primary" type="submit" id="registerButton">Create account</button>
+      </form>
+
+      <p class="auth-switch">
+        <span id="switchText">Don't have an account?</span>
+        <button type="button" class="link-button" id="switchAuth" onclick="toggleAuth()">Register</button>
+      </p>
+    </div>
+  </section>
+
+  <section id="dashboard">
+    <div class="stats">
+      <div class="stat"><span>Total emergencies</span><strong id="emergencyCount">—</strong></div>
+      <div class="stat"><span>Total resources</span><strong id="resourceCount">—</strong></div>
+      <div class="stat"><span>Available resources</span><strong id="availableCount">—</strong></div>
+    </div>
+
+    <div class="layout">
+      <section>
+        <div class="panel section">
+          <h2>➕ Report an emergency</h2>
+          <form id="emergencyForm">
+            <label for="emergencyType">Emergency type</label>
+            <select id="emergencyType" required>
+              <option value="Medical">Medical</option>
+              <option value="Fire">Fire</option>
+              <option value="Accident">Road accident</option>
+              <option value="Rescue">Rescue</option>
+              <option value="Natural Disaster">Natural disaster</option>
+            </select>
+
+            <label for="severity">Severity</label>
+            <select id="severity" required>
+              <option>High</option><option>Medium</option><option>Low</option><option>Critical</option>
+            </select>
+
+            <label for="description">Description</label>
+            <textarea id="description" placeholder="Describe the emergency..." required></textarea>
+
+            <div class="row">
+              <div style="flex:1;min-width:110px">
+                <label for="latitude">Latitude</label>
+                <input id="latitude" type="number" step="any" value="28.6139" required>
+              </div>
+              <div style="flex:1;min-width:110px">
+                <label for="longitude">Longitude</label>
+                <input id="longitude" type="number" step="any" value="77.2090" required>
+              </div>
+            </div>
+
+            <label for="people">People affected</label>
+            <input id="people" type="number" min="1" value="1" required>
+            <button class="primary" type="submit">Submit emergency</button>
+          </form>
+        </div>
+
+        <div class="panel section">
+          <div class="row" style="justify-content:space-between">
+            <h2 style="margin:0">Available resources</h2>
+            <button class="secondary small" onclick="loadResources()">Refresh</button>
+          </div>
+          <div id="resourcesList" class="empty">Loading resources...</div>
+        </div>
+      </section>
+
+      <section>
+        <div class="panel section">
+          <div class="row" style="justify-content:space-between">
+            <h2 style="margin:0">Recent emergencies</h2>
+            <button class="secondary small" onclick="loadEmergencies()">Refresh</button>
+          </div>
+          <div id="emergenciesList" class="empty">Loading emergencies...</div>
+        </div>
+
+        <div class="panel">
+          <h2>🎯 Resource matching results</h2>
+          <p class="muted">Choose an emergency to find suitable available resources.</p>
+          <label for="matchEmergency">Emergency</label>
+          <select id="matchEmergency"><option value="">Load emergencies first</option></select>
+          <button class="primary" style="margin-top:10px" onclick="matchResources()">Find matching resources</button>
+          <div id="matchingResults" class="empty">Matching results will appear here.</div>
+        </div>
+      </section>
+    </div>
+  </section>
+</main>
+
+<script>
+const API = "http://127.0.0.1:5000";
+let currentUser = null;
+
+function notice(message, ok=true) {
+  const el=document.getElementById("notice");
+  el.textContent=message;
+  el.className=ok?"success":"error";
+  el.style.display="block";
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+async function api(path, options={}) {
+  const headers = new Headers(options.headers || {});
+  const token = sessionStorage.getItem("sercs_token");
+  if (token) headers.set("Authorization", "Bearer " + token);
+  const response=await fetch(API+path,{...options,headers});
+  let data={};
+  try { data=await response.json(); } catch {}
+  if(!response.ok) throw new Error(data.message || data.error || "Request failed ("+response.status+")");
+  return data;
+}
+function esc(value) {
+  return String(value ?? "").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+function setApiStatus(text) { document.getElementById("apiStatus").textContent=text; }
+
+function toggleAuth() {
+  const registering=document.getElementById("registerForm").style.display==="none";
+  document.getElementById("loginForm").style.display=registering?"none":"block";
+  document.getElementById("registerForm").style.display=registering?"block":"none";
+  document.getElementById("authTitle").textContent=registering?"📝 Create Operator Account":"🔐 Operator Login";
+  document.getElementById("authSubtitle").textContent=registering?"Register an account to access the coordination dashboard.":"Login to access the emergency coordination dashboard.";
+  document.getElementById("switchText").textContent=registering?"Already have an account?":"Don't have an account?";
+  document.getElementById("switchAuth").textContent=registering?"Login":"Register";
+  document.getElementById("notice").style.display="none";
+}
+
+function showDashboard(user) {
+  currentUser=user;
+  document.getElementById("authSection").style.display="none";
+  document.getElementById("dashboard").style.display="block";
+  document.getElementById("logoutBtn").style.display="inline-block";
+  document.getElementById("userInfo").textContent=`Signed in: ${user.name} · ${user.role}`;
+  refreshAll();
+}
+
+function logout() {
+  sessionStorage.removeItem("sercs_token");
+  currentUser=null;
+  document.getElementById("dashboard").style.display="none";
+  document.getElementById("authSection").style.display="block";
+  document.getElementById("logoutBtn").style.display="none";
+  document.getElementById("userInfo").textContent="";
+  document.getElementById("loginPassword").value="";
+  notice("You have been logged out successfully.");
+}
+
+async function loadProfile() {
+  const data=await api("/api/auth/me");
+  if(!data.user) throw new Error("Could not load user profile");
+  showDashboard(data.user);
+}
+
+async function checkHealth() {
+  try {
+    await api("/api/health");
+    setApiStatus("● Backend connected");
+  } catch(e) {
+    setApiStatus("● Backend unavailable");
+  }
+}
+
+document.getElementById("loginForm").addEventListener("submit",async event=>{
+  event.preventDefault();
+  const button=document.getElementById("loginButton");
+  button.disabled=true;
+  button.textContent="Logging in...";
+  try {
+    const data=await api("/api/auth/login",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        email:document.getElementById("loginEmail").value.trim(),
+        password:document.getElementById("loginPassword").value
+      })
+    });
+    if(!data.access_token) throw new Error("Login response did not contain an access token");
+    sessionStorage.setItem("sercs_token",data.access_token);
+    await loadProfile();
+    notice("Login successful. Welcome, "+data.user.name+".");
+  } catch(e) {
+    sessionStorage.removeItem("sercs_token");
+    notice("Login failed: "+e.message,false);
+  } finally {
+    button.disabled=false;
+    button.textContent="Login";
+  }
+});
+
+document.getElementById("registerForm").addEventListener("submit",async event=>{
+  event.preventDefault();
+  const button=document.getElementById("registerButton");
+  button.disabled=true;
+  button.textContent="Creating account...";
+  try {
+    const data=await api("/api/auth/register",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        name:document.getElementById("registerName").value.trim(),
+        email:document.getElementById("registerEmail").value.trim(),
+        phone:document.getElementById("registerPhone").value.trim(),
+        password:document.getElementById("registerPassword").value
+      })
+    });
+    notice(data.message||"Registration successful. Please log in.");
+    document.getElementById("loginEmail").value=document.getElementById("registerEmail").value.trim();
+    document.getElementById("loginPassword").value="";
+    document.getElementById("registerPassword").value="";
+    toggleAuth();
+  } catch(e) {
+    notice("Registration failed: "+e.message,false);
+  } finally {
+    button.disabled=false;
+    button.textContent="Create account";
+  }
+});
+
+async function loadResources() {
+  const box=document.getElementById("resourcesList");
+  try {
+    const data=await api("/api/resources");
+    const list=data.resources||[];
+    document.getElementById("resourceCount").textContent=list.length;
+    document.getElementById("availableCount").textContent=list.filter(r=>r.status==="AVAILABLE").length;
+    box.className=list.length?"":"empty";
+    box.innerHTML=list.length?list.map(r=>`
+      <div class="item">
+        <div class="row" style="justify-content:space-between">
+          <h3>${esc(r.resource_name)}</h3>
+          <span class="tag ${r.status==="AVAILABLE"?"":"warn"}">${esc(r.status)}</span>
+        </div>
+        <p>Type: ${esc(r.resource_type)} · Capacity: ${esc(r.capacity)}</p>
+        <p>Provider: ${esc(r.provider_name||"Not specified")}</p>
+        <p>Location: ${esc(r.latitude)}, ${esc(r.longitude)}</p>
+        <label for="status-${Number(r.id)}">Update status</label>
+        <div class="row">
+          <select id="status-${Number(r.id)}">
+            ${["AVAILABLE","ASSIGNED","ON_THE_WAY","ARRIVED","BUSY","MAINTENANCE","OFFLINE"].map(s=>`<option ${s===r.status?"selected":""}>${s}</option>`).join("")}
+          </select>
+          <button class="secondary small" onclick="updateResource(${Number(r.id)})">Save</button>
+        </div>
+      </div>`).join(""):'<div class="empty">No resources found.</div>';
+  } catch(e) {
+    box.textContent="Could not load resources: "+e.message;
+  }
+}
+
+async function loadEmergencies() {
+  const box=document.getElementById("emergenciesList");
+  try {
+    const data=await api("/api/emergencies");
+    const list=data.emergencies||[];
+    document.getElementById("emergencyCount").textContent=list.length;
+    const select=document.getElementById("matchEmergency");
+    const previous=select.value;
+    select.innerHTML='<option value="">Select an emergency</option>'+list.map(e=>
+      `<option value="${Number(e.emergency_id ?? e.id)}">${esc(e.emergency_code||("Emergency #"+(e.emergency_id??e.id)))} — ${esc(e.emergency_type||e.type||"Emergency")}</option>`
+    ).join("");
+    if(list.some(e=>String(e.emergency_id??e.id)===previous)) select.value=previous;
+    box.className=list.length?"":"empty";
+    box.innerHTML=list.length?list.map(e=>{
+      const id=Number(e.emergency_id??e.id);
+      return `<div class="item">
+        <div class="row" style="justify-content:space-between">
+          <h3>${esc(e.emergency_code||("Emergency #"+id))}</h3>
+          <span class="tag warn">${esc(e.severity||e.status||"REPORTED")}</span>
+        </div>
+        <p>Type: ${esc(e.emergency_type||e.type||"Not specified")}</p>
+        <p>${esc(e.description||"No description")}</p>
+        <p>Location: ${esc(e.latitude??"—")}, ${esc(e.longitude??"—")}</p>
+        <button class="secondary small" onclick="selectEmergency(${id})">Find resources</button>
+      </div>`;
+    }).join(""):'<div class="empty">No emergencies reported yet.</div>';
+  } catch(e) {
+    box.textContent="Could not load emergencies: "+e.message;
+  }
+}
+
+function selectEmergency(id) {
+  document.getElementById("matchEmergency").value=String(id);
+  matchResources();
+}
+
+async function matchResources() {
+  const id=document.getElementById("matchEmergency").value;
+  const box=document.getElementById("matchingResults");
+  if(!id) { box.textContent="Select an emergency first."; return; }
+  box.textContent="Finding resources...";
+  try {
+    const data=await api(`/api/emergencies/${encodeURIComponent(id)}/match`);
+    const list=data.recommended_resources||[];
+    box.className=list.length?"":"empty";
+    box.innerHTML=`<p class="muted">Available resources found: ${esc(data.total_available_resources??list.length)}</p>`+
+      (list.length?list.map(r=>`<div class="item">
+        <div class="row" style="justify-content:space-between">
+          <h3>${esc(r.resource_name)}</h3><span class="tag">${esc(r.status)}</span>
+        </div>
+        <p>Type: ${esc(r.resource_type)} · Capacity: ${esc(r.capacity)}</p>
+        <p>Distance: ${esc(r.distance_km)} km</p>
+        <p>Resource ID: ${esc(r.resource_id)}</p>
+      </div>`).join(""):'<div class="empty">No available matching resources found.</div>');
+  } catch(e) {
+    box.textContent="Matching failed: "+e.message;
+  }
+}
+
+async function updateResource(id) {
+  try {
+    const status=document.getElementById("status-"+id).value;
+    await api(`/api/resources/${id}/status`,{
+      method:"PUT",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({status})
+    });
+    notice("Resource status updated successfully.");
+    await loadResources();
+  } catch(e) {
+    notice("Could not update resource: "+e.message,false);
+  }
+}
+
+document.getElementById("emergencyForm").addEventListener("submit",async event=>{
+  event.preventDefault();
+  const button=event.submitter;
+  button.disabled=true;
+  button.textContent="Submitting...";
+  const body={
+    emergency_type:document.getElementById("emergencyType").value,
+    severity:document.getElementById("severity").value,
+    description:document.getElementById("description").value.trim(),
+    latitude:Number(document.getElementById("latitude").value),
+    longitude:Number(document.getElementById("longitude").value),
+    people_affected:Number(document.getElementById("people").value)
+  };
+  try {
+    const data=await api("/api/emergencies",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify(body)
+    });
+    notice("Emergency created successfully. Code: "+(data.emergency_code||"Created"));
+    document.getElementById("description").value="";
+    await loadEmergencies();
+    const select=document.getElementById("matchEmergency");
+    if(data.emergency_id) select.value=String(data.emergency_id);
+    if(select.value) await matchResources();
+  } catch(e) {
+    notice("Emergency creation failed: "+e.message,false);
+  } finally {
+    button.disabled=false;
+    button.textContent="Submit emergency";
+  }
+});
+
+async function refreshAll() {
+  await Promise.all([loadResources(),loadEmergencies()]);
+}
+
+async function initialize() {
+  await checkHealth();
+  const token=sessionStorage.getItem("sercs_token");
+  if(token) {
+    try {
+      await loadProfile();
+      return;
+    } catch(e) {
+      sessionStorage.removeItem("sercs_token");
+    }
+  }
+  document.getElementById("authSection").style.display="block";
+  document.getElementById("dashboard").style.display="none";
+}
+initialize();
+</script>
+</body>
+</html>
